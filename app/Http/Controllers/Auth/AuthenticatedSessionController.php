@@ -8,6 +8,14 @@ use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\View\View;
+use Laravel\Passport\TokenRepository;
+use Laravel\Passport\RefreshTokenRepository;
+use Lcobucci\JWT\Encoding\CannotDecodeContent;
+use Lcobucci\JWT\Encoding\JoseEncoder;
+use Lcobucci\JWT\Token\InvalidTokenStructure;
+use Lcobucci\JWT\Token\Parser;
+use Lcobucci\JWT\Token\UnsupportedHeaderFound;
+use Lcobucci\JWT\UnencryptedToken;
 
 class AuthenticatedSessionController extends Controller
 {
@@ -43,6 +51,15 @@ class AuthenticatedSessionController extends Controller
         $request->session()->regenerateToken();
 
         if ($request->redirect_url) {
+            $tokenRepository = app(TokenRepository::class);
+            $refreshTokenRepository = app(RefreshTokenRepository::class);
+        
+            $parser = new Parser(new JoseEncoder());
+            $token = $parser->parse($request->access_token)->claims()->get('jti');
+            
+            $tokenRepository->revokeAccessToken($token);
+            $refreshTokenRepository->revokeRefreshTokensByAccessTokenId($token);
+
             return redirect($request->redirect_url);
         } else {
             return redirect('/');
